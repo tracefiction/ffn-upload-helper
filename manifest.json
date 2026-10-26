@@ -1,0 +1,84 @@
+{
+  "manifest_version": 3,
+  "name": "Upload Helper for FanFiction.net (unofficial)",
+  "short_name": "FFN Upload Helper",
+  "version": "0.1.0",
+  "description": "Retries FanFiction.net's \"Processing Error\" until your document actually uploads, and keeps your formatting.",
+  "author": "Trace",
+  "homepage_url": "https://github.com/tracefiction/ffn-upload-helper",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.fanfiction.net/docs/docs.php*"
+      ],
+      "js": [
+        "vendor/jszip.min.js",
+        "vendor/mammoth.browser.min.js",
+        "src/core.js",
+        "src/settings.js",
+        "src/uploader.js",
+        "src/docx-styles.js",
+        "src/docx.js",
+        "src/text.js",
+        "src/docs-page.js"
+      ],
+      "css": [
+        "src/ui.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.fanfiction.net/docs/edit.php*"
+      ],
+      "js": [
+        "src/core.js",
+        "src/settings.js",
+        "src/edit-page.js"
+      ],
+      "css": [
+        "src/ui.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.fanfiction.net/docs/docs.php*",
+        "https://www.fanfiction.net/docs/edit.php*"
+      ],
+      "js": [
+        "src/main-world.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "action": {
+    "default_title": "FFN Upload Helper settings",
+    "default_popup": "options.html"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ffn-upload-helper@tracefiction.com",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  }
+}

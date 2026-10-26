@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FFN Upload Helper settings</title>
+  <style>
+    body { font: 14px/1.45 system-ui, sans-serif; margin: 16px; min-width: 320px; max-width: 520px; color: #222; }
+    h1 { font-size: 16px; margin: 0 0 12px; }
+    fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+    legend { font-weight: 600; margin-bottom: 4px; }
+    label { display: block; margin: 3px 0; }
+    .hint { color: #666; font-size: 12px; margin: 2px 0 0 22px; }
+    #saved { color: #2e7d32; font-size: 12px; min-height: 1em; }
+  </style>
+</head>
+<body>
+  <h1>Upload Helper for FanFiction.net</h1>
+
+  <fieldset>
+    <legend>Scene breaks</legend>
+    <label><input type="radio" name="separatorStyle" value="hr"> Turn them into a horizontal line</label>
+    <label><input type="radio" name="separatorStyle" value="asterism"> Turn them into a centred &#x2042;</label>
+    <label><input type="radio" name="separatorStyle" value="off"> Leave them alone</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Files</legend>
+    <label><input type="checkbox" name="convertFiles"> Convert Word (.docx), text (.txt) and web (.html) files in my browser</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Retries</legend>
+    <label>Give up after <input type="number" name="maxTries" min="5" max="120" step="1" style="width:4em"> tries (about 3 seconds each)</label>
+  </fieldset>
+
+  <div id="saved"></div>
+  <p class="hint" style="margin:12px 0 0">Made by <a href="https://tracefiction.com" target="_blank" rel="noopener">Trace</a>. Not affiliated with FanFiction.net.</p>
+  <script src="src/settings.js"></script>
+  <script src="src/options.js"></script>
+</body>
+</html>
