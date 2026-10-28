@@ -1,6 +1,6 @@
 {
   "name": "ffn-upload-helper",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "scripts": {
     "test": "node --test test/*.test.js",
     "package": "sh scripts/package.sh",

@@ -215,3 +215,16 @@ test('editor no-op', { timeout: 60000 }, async () => {
     assert.equal(await page.$('.ffnuh-panel'), null);
   });
 });
+
+test('paste with single line breaks', { timeout: 60000 }, async () => {
+  await withSite(() => 'saved', async (page, site) => {
+    await page.goto('https://www.fanfiction.net/docs/docs.php');
+    await page.fill('input[name=title]', 'Chapter Twelve');
+    await page.check('#input_method_web');
+    await page.waitForFunction(() => window.tinymce && tinymce.activeEditor && tinymce.activeEditor.initialized);
+    await page.evaluate(() => tinymce.activeEditor.setContent('<p>A/N: hello<br>***<br>So...</p>'));
+    await page.click('button[type=submit]');
+    await page.waitForSelector('.ffnuh-panel[data-kind=success]');
+    assert.match(site.creates[0].webcontent, /<p>A\/N: hello<\/p>\s*<hr( \/)?>\s*<p>So\.\.\.<\/p>/);
+  });
+});

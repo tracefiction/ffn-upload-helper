@@ -65,11 +65,52 @@
     let replaced = 0;
     for (const el of [...doc.body.querySelectorAll('p, center, div, h1, h2, h3, h4, h5, h6')]) {
       if (el.querySelector('p, div, center, hr, img, h1, h2, h3, h4, h5, h6')) continue;
-      if (!isSeparatorText(el.textContent)) continue;
-      el.replaceWith(make(doc));
-      replaced++;
+      if (isSeparatorText(el.textContent)) {
+        el.replaceWith(make(doc));
+        replaced++;
+        continue;
+      }
+      replaced += splitAtSeparatorLines(el, make, doc);
     }
     return { html: replaced ? doc.body.innerHTML : html, replaced };
+  }
+
+  // A paragraph made of lines joined with <br>, where one line is a separator:
+  // split it into paragraphs around the separator.
+  function splitAtSeparatorLines(el, make, doc) {
+    if (!el.querySelector(':scope > br')) return 0;
+    const lines = [[]];
+    for (const node of [...el.childNodes]) {
+      if (node.nodeName === 'BR') lines.push([]);
+      else lines[lines.length - 1].push(node);
+    }
+    const isSep = (line) => isSeparatorText(line.map((n) => n.textContent).join(''));
+    if (!lines.some(isSep)) return 0;
+    const out = [];
+    let current = [];
+    let count = 0;
+    const flush = () => {
+      while (current.length && current[current.length - 1].nodeName === 'BR') current.pop();
+      if (current.some((n) => n.textContent.trim())) {
+        const block = el.cloneNode(false);
+        current.forEach((n) => block.appendChild(n));
+        out.push(block);
+      }
+      current = [];
+    };
+    lines.forEach((line, i) => {
+      if (isSep(line)) {
+        flush();
+        out.push(make(doc));
+        count++;
+      } else {
+        if (current.length) current.push(doc.createElement('br'));
+        current.push(...line);
+      }
+    });
+    flush();
+    el.replaceWith(...out);
+    return count;
   }
 
   const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;

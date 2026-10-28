@@ -92,3 +92,19 @@ test('retry delay', () => {
   assert.equal(core.retryDelayMs(() => 0), 2500);
   assert.equal(core.retryDelayMs(() => 0.999), 3499);
 });
+
+test('separators on br lines', () => {
+  const { html, replaced } = core.protectSceneBreaks('<p>A/N: hello<br>***<br>So...<br>Next line</p>', 'hr', DOMParser);
+  assert.equal(replaced, 1);
+  assert.equal(html, '<p>A/N: hello</p><hr><p>So...<br>Next line</p>');
+});
+
+test('br lines without separators are left alone', () => {
+  const input = '<p>One<br>Two</p>';
+  assert.deepEqual(core.protectSceneBreaks(input, 'hr', DOMParser), { html: input, replaced: 0 });
+});
+
+test('separator on the first br line', () => {
+  const { html } = core.protectSceneBreaks('<p style="text-align:center;">* * *<br>Text</p>', 'asterism', DOMParser);
+  assert.equal(html, '<p style="text-align:center;">\u2042</p><p style="text-align:center;">Text</p>');
+});
