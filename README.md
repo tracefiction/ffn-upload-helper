@@ -12,6 +12,8 @@ It also:
 
 It runs only on the Doc Manager pages and collects no data.
 
+If uploads keep failing, click Copy debug report on the error or in the extension's popup and send it to whoever is helping you. It lists your last 10 uploads and what FanFiction.net said each time.
+
 ## Install
 
 Chrome: open `chrome://extensions`, turn on Developer mode, click Load unpacked and choose this folder.

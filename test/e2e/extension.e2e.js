@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -9,6 +10,13 @@ const { TOKEN, docsPage, editPage } = require('./pages.js');
 const ROOT = path.resolve(__dirname, '..', '..');
 const CHROME = process.env.CHROME_PATH || path.join(os.homedir(),
   'Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing');
+
+const TRACE = 'fl=1f1\nh=www.fanfiction.net\nip=1.2.3.4\nts=1793465649.000\ncolo=LHR\nhttp=http/2\nloc=GB\ntls=TLSv1.3\nwarp=off\n';
+
+function extensionId(dir) {
+  return [...crypto.createHash('sha256').update(dir).digest('hex').slice(0, 32)]
+    .map((c) => String.fromCharCode(97 + parseInt(c, 16))).join('');
+}
 
 function fields(request) {
   const body = request.postDataBuffer().toString('latin1');
@@ -29,6 +37,7 @@ async function withSite(script, run) {
     args: [`--disable-extensions-except=${ROOT}`, `--load-extension=${ROOT}`],
   });
   const site = { docs: [{ id: 10000081, label: 'Existing doc', words: 120 }], creates: [], edits: [], nextId: 10000200 };
+  await context.route('https://www.fanfiction.net/cdn-cgi/trace', (route) => route.fulfill({ contentType: 'text/plain', body: TRACE }));
   await context.route('https://www.fanfiction.net/docs/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -68,6 +77,7 @@ async function withSite(script, run) {
 }
 
 const ERROR = '<b>Processing Error:</b> The document is not in a supported format, over 5MB, or password-protected. ray id: S2-M';
+const ERROR_PHP = ERROR.replace('S2-M', 'php-master');
 
 test('paste, retry, save', { timeout: 60000 }, async () => {
   await withSite((f, n) => (n < 3 ? ERROR : 'saved'), async (page, site) => {
@@ -226,5 +236,36 @@ test('paste with single line breaks', { timeout: 60000 }, async () => {
     await page.click('button[type=submit]');
     await page.waitForSelector('.ffnuh-panel[data-kind=success]');
     assert.match(site.creates[0].webcontent, /<p>A\/N: hello<\/p>\s*<hr( \/)?>\s*<p>So\.\.\.<\/p>/);
+  });
+});
+
+test('debug report', { timeout: 60000 }, async () => {
+  await withSite((f, n) => (n === 1 ? ERROR : ERROR_PHP), async (page, site) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'https://www.fanfiction.net' });
+    await page.goto('https://www.fanfiction.net/docs/docs.php');
+    await page.fill('input[name=title]', 'Secret chapter');
+    await page.setInputFiles('#doc_file', { name: 'private-notes.rtf', mimeType: 'application/rtf', buffer: Buffer.from('{\\rtf1 Hello}') });
+    await page.click('button[type=submit]');
+    await page.waitForSelector('.ffnuh-detail:has-text("Attempt 2/60")');
+    await page.click('.ffnuh-button:has-text("Stop")');
+    await page.waitForSelector('.ffnuh-panel[data-kind=info]');
+    await page.click('.ffnuh-button:has-text("Copy debug report")');
+    await page.waitForSelector('.ffnuh-button:has-text("Copied")');
+    const report = await page.evaluate(() => navigator.clipboard.readText());
+
+    assert.match(report, /^FFN Upload Helper debug report\nVersion: \d+\.\d+\.\d+\n/);
+    assert.match(report, /\n1\. \d{4}-\d\d-\d\d \d\d:\d\d UTC: stopped after 2 tries in \d+s\n/);
+    assert.match(report, /Sent: \.rtf file as is, 13 bytes, Story format, up to 60 tries\n/);
+    assert.match(report, /Docs in list: 1\n/);
+    assert.match(report, /Network: Cloudflare LHR, GB, http\/2, TLSv1\.3, WARP off\n/);
+    assert.match(report, /Servers: S2-M 0 of 1 saved, php-master 0 of 1 saved\n/);
+    assert.match(report, /2x Processing Error: The document is not in a supported format, over 5MB, or password-protected\.\n/);
+    assert.match(report, /\n +1 +S2-M +processing-error +HTTP 200 +\d+\.\ds\n +2 +php-master +processing-error +HTTP 200 +\d+\.\ds\n/);
+    assert.doesNotMatch(report, /Secret|private-notes|1\.2\.3\.4/);
+
+    await page.goto(`chrome-extension://${extensionId(ROOT)}/options.html`);
+    await page.waitForSelector('#runCount:has-text("1 upload recorded")');
+    await page.click('#runCount');
+    await page.waitForFunction(() => document.getElementById('reportText').value.includes('stopped after 2 tries'));
   });
 });

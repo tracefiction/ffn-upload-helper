@@ -92,6 +92,8 @@ test('stops on logout, challenge, unknown', async () => {
   const { outcome } = await run(['<p>Error Type 1</p>']);
   assert.equal(outcome.kind, 'unexpected');
   assert.equal(outcome.snippet, 'Error Type 1');
+  const titled = await run(['<title>502 Bad Gateway</title><p>Error Type 1</p>']);
+  assert.equal(titled.outcome.log[0].message, '502 Bad Gateway');
 });
 
 test('cancel', async () => {
@@ -108,4 +110,17 @@ test('progress', async () => {
   const seen = [];
   await run([ERROR, savedPage], { onProgress: (p) => seen.push(p) });
   assert.deepEqual(seen, [{ tries: 1, maxTries: 60, lastResult: 'processing-error', backend: 'php-master', waitingMs: 2500 }]);
+});
+
+test('records every try', async () => {
+  const seen = [];
+  const { outcome } = await run([new TypeError('Failed to fetch'), ERROR_S2M, [429, 'Too Many Requests'], savedPage],
+    { onAttempt: (entry) => seen.push(entry) });
+  assert.deepEqual(seen, outcome.log);
+  assert.deepEqual(seen.map(({ result, backend, status, message }) => ({ result, backend, status, message })), [
+    { result: 'network-error', backend: null, status: null, message: 'Failed to fetch' },
+    { result: 'processing-error', backend: 'S2-M', status: 200, message: 'Processing Error:' },
+    { result: 'rate-limited', backend: null, status: 429, message: null },
+    { result: 'saved', backend: 'php-master', status: 200, message: null },
+  ]);
 });

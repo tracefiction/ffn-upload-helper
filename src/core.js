@@ -17,6 +17,19 @@
     return m ? m[1] : null;
   }
 
+  function processingErrorText(doc) {
+    const walker = doc.createTreeWalker(doc.body, 4);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (!/Processing Error/i.test(node.nodeValue) || /^(SCRIPT|STYLE|TEXTAREA)$/.test(node.parentElement.nodeName)) continue;
+      const start = node.parentElement.nodeName === 'B' ? node.parentElement : node;
+      const next = start.nextSibling;
+      const text = start.textContent + (next && next.nodeType === 3 ? next.nodeValue : '');
+      return text.replace(/ray id:\s*[\w-]+/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    }
+    return null;
+  }
+
   function findCty(html) {
     const m = /name=['"]?cty['"]?\s+value=['"]?([0-9a-f]+)/i.exec(html);
     return m ? m[1] : null;
@@ -138,6 +151,7 @@
   const api = {
     classifyCreateResponse,
     backendOf,
+    processingErrorText,
     findCty,
     findDocIdByLabel,
     normaliseLabel,

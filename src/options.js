@@ -1,6 +1,6 @@
 (async function () {
   'use strict';
-  const { settings } = globalThis.FFNUH;
+  const { settings, diagnostics } = globalThis.FFNUH;
   const form = document.body;
   const current = await settings.load();
 
@@ -18,5 +18,24 @@
       maxTries: Math.min(120, Math.max(5, Number.isFinite(tries) ? tries : settings.DEFAULTS.maxTries)),
     });
     document.getElementById('saved').textContent = 'Saved.';
+  });
+
+  const details = document.getElementById('reportDetails');
+  const reportText = document.getElementById('reportText');
+  const runs = await diagnostics.loadRuns();
+  document.getElementById('runCount').textContent = 'Show report (' +
+    (runs.length === 1 ? '1 upload' : runs.length + ' uploads') + ' recorded)';
+
+  details.addEventListener('toggle', async () => {
+    if (details.open) reportText.value = await diagnostics.currentReport();
+  });
+
+  document.getElementById('copyReport').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(await diagnostics.currentReport());
+      document.getElementById('copied').textContent = 'Copied.';
+    } catch (err) {
+      details.open = true;
+    }
   });
 })();

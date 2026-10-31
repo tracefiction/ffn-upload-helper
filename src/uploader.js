@@ -12,7 +12,9 @@
     const maxTries = opts.maxTries || DEFAULT_MAX_TRIES;
     const parse = opts.parseHtml || ((html) => new root.DOMParser().parseFromString(html, 'text/html'));
     const progress = opts.onProgress || (() => {});
+    const onAttempt = opts.onAttempt || (() => {});
     const log = [];
+    const record = (entry) => { log.push(entry); onAttempt(entry); };
     let tries = 0;
 
     while (tries < maxTries) {
@@ -24,14 +26,16 @@
         res = await fetchImpl('/docs/docs.php', { method: 'POST', body: opts.buildBody(), credentials: 'same-origin' });
         body = await res.text();
       } catch (err) {
-        log.push({ result: 'network-error', backend: null, ms: Date.now() - started });
+        record({ at: started, result: 'network-error', backend: null, status: null, ms: Date.now() - started, message: err.message });
         progress({ tries, maxTries, lastResult: 'network-error', backend: null });
         if (!(await wait(sleep, core.retryDelayMs(opts.random), opts.signal))) return { kind: 'cancelled', tries, log };
         continue;
       }
       const result = core.classifyCreateResponse(res.status, body);
       const backend = core.backendOf(body);
-      log.push({ result, backend, ms: Date.now() - started });
+      const message = result === 'processing-error' ? core.processingErrorText(parse(body))
+        : result === 'unknown' ? parse(body).title.slice(0, 100) || null : null;
+      record({ at: started, result, backend, status: res.status, ms: Date.now() - started, message });
 
       if (result === 'saved') {
         return { kind: 'saved', tries, log, docId: core.findDocIdByLabel(parse(body), opts.label) };

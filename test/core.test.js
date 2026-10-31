@@ -108,3 +108,16 @@ test('separator on the first br line', () => {
   const { html } = core.protectSceneBreaks('<p style="text-align:center;">* * *<br>Text</p>', 'asterism', DOMParser);
   assert.equal(html, '<p style="text-align:center;">\u2042</p><p style="text-align:center;">Text</p>');
 });
+
+test('processing error text', () => {
+  const page = parse('<div class=alert><b>Processing Error:</b> The document is not in a supported format, over 5MB, or password-protected.</div>' +
+    '<form><input name=title></form><div class=footer>ray id: php-master</div>');
+  assert.equal(core.processingErrorText(page),
+    'Processing Error: The document is not in a supported format, over 5MB, or password-protected.');
+  assert.equal(core.processingErrorText(parse('<b>Processing Error:</b> Not supported. ray id: S2-M')),
+    'Processing Error: Not supported.');
+  assert.equal(core.processingErrorText(parse('<p>Document Saved</p>')), null);
+  const listPage = fixture('docs-saved.html').replace("<div class='alert alert-success'>Document Saved</div>",
+    'Document Manager<b>Processing Error:</b> Bad format.');
+  assert.equal(core.processingErrorText(parse(listPage)), 'Processing Error: Bad format.');
+});

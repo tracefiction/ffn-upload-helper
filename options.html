@@ -11,6 +11,9 @@
     label { display: block; margin: 3px 0; }
     .hint { color: #666; font-size: 12px; margin: 2px 0 0 22px; }
     #saved { color: #2e7d32; font-size: 12px; min-height: 1em; }
+    #copied { color: #2e7d32; font-size: 12px; margin-left: 6px; }
+    details { margin-top: 6px; font-size: 12px; }
+    #reportText { box-sizing: border-box; width: 100%; height: 12em; font: 11px monospace; }
   </style>
 </head>
 <body>
@@ -33,9 +36,20 @@
     <label>Give up after <input type="number" name="maxTries" min="5" max="120" step="1" style="width:4em"> tries (about 3 seconds each)</label>
   </fieldset>
 
+  <fieldset>
+    <legend>Debug report</legend>
+    <p class="hint" style="margin:0 0 6px">If uploads keep failing, copy this and send it to whoever is helping you. It has your last 10 uploads and what FanFiction.net said each time, but not your document or its name.</p>
+    <button type="button" id="copyReport">Copy debug report</button><span id="copied"></span>
+    <details id="reportDetails">
+      <summary id="runCount">Show report</summary>
+      <textarea id="reportText" readonly wrap="off"></textarea>
+    </details>
+  </fieldset>
+
   <div id="saved"></div>
   <p class="hint" style="margin:12px 0 0">Made by <a href="https://tracefiction.com" target="_blank" rel="noopener">Trace</a>. Not affiliated with FanFiction.net.</p>
   <script src="src/settings.js"></script>
+  <script src="src/diagnostics.js"></script>
   <script src="src/options.js"></script>
 </body>
 </html>

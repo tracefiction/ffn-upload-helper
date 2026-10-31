@@ -8,6 +8,7 @@
   if (!form) return;
 
   let running = null;
+  let activeRun = null;
   let bypassOnce = false;
 
   const panel = buildPanel();
@@ -22,7 +23,8 @@
     if (running) return;
     submit().catch((err) => {
       running = null;
-      panel.show('error', 'Something went wrong: ' + err.message, { offerBypass: true });
+      finishRun({ kind: 'error', message: err.message });
+      panel.show('error', 'Something went wrong: ' + err.message, { offerBypass: true, offerReport: true });
     });
   }, true);
 
@@ -42,6 +44,7 @@
     if (!cty) return panel.show('error', 'Missing form token, reload the page.');
 
     let payload;
+    let upload;
     const notes = [];
 
     if (method === 'web') {
@@ -53,11 +56,13 @@
         if (result.replaced) notes.push(sceneBreakNote(result.replaced));
       }
       payload = { method: 'web', html };
+      upload = { source: 'paste' };
     } else {
       const file = field('doc') && field('doc').files && field('doc').files[0];
       const problem = F.checkFile(file);
       if (problem) return panel.show('error', problem);
       const kind = convertibleKind(file.name);
+      upload = { source: 'file', ext: F.extensionOf(file.name) };
       if (isStory && settings.convertFiles && kind) {
         panel.show('working', 'Converting ' + file.name + '...');
         try {
@@ -66,10 +71,12 @@
             return panel.show('error', 'File is empty.');
           }
           payload = { method: 'web', html: converted.html };
+          upload.source = 'converted';
           notes.push('Converted ' + file.name + ' locally.');
           if (converted.sceneBreaks) notes.push(sceneBreakNote(converted.sceneBreaks));
         } catch (err) {
           payload = { method: 'file', file };
+          upload.source = 'convert-failed';
           notes.push('Could not convert ' + file.name + ', uploading as is.');
         }
       } else {
@@ -80,15 +87,51 @@
     running = new AbortController();
     panel.show('working', 'Uploading "' + label + '"...', { notes, onCancel: () => running && running.abort() });
 
+    const run = F.diagnostics.newRun({
+      upload: Object.assign(upload, { format, bytes: payloadBytes(payload) }),
+      docsInList: countDocs(),
+      maxTries: settings.maxTries,
+    });
+    activeRun = run;
+    F.diagnostics.startRun(run);
+    F.diagnostics.checkNetwork().then((network) => {
+      run.network = network;
+      F.diagnostics.saveRun(run);
+    });
+
     const outcome = await F.createDocument({
       label,
       maxTries: settings.maxTries,
       signal: running.signal,
       buildBody: () => buildBody(label, payload, format, cty),
       onProgress: (p) => panel.progress(p),
+      onAttempt: (entry) => {
+        run.tries.push(entry);
+        F.diagnostics.saveRun(run);
+      },
     });
     running = null;
+    await finishRun(outcome);
     report(outcome, label, notes);
+  }
+
+  function finishRun(outcome) {
+    const run = activeRun;
+    activeRun = null;
+    if (!run) return Promise.resolve();
+    run.outcome = { kind: outcome.kind, status: outcome.status, viaDuplicate: outcome.viaDuplicate, message: outcome.message };
+    run.finishedAt = Date.now();
+    return F.diagnostics.saveRun(run);
+  }
+
+  function payloadBytes(payload) {
+    return payload.method === 'web' ? new Blob([payload.html]).size : payload.file.size;
+  }
+
+  function countDocs() {
+    const list = document.getElementById('gui_table1');
+    if (!list) return null;
+    return [...list.querySelectorAll('tr')].filter((row) => row.querySelector('a[href*="docid="]')).length;
   }
 
   function convertibleKind(name) {
@@ -141,17 +184,17 @@
       case 'duplicate-label':
         return panel.show('error', 'A document named "' + label + '" already exists.');
       case 'empty':
-        return panel.show('error', 'FanFiction.net says the document is empty.');
+        return panel.show('error', 'FanFiction.net says the document is empty.', { offerReport: true });
       case 'signed-out':
-        return panel.show('error', 'You were logged out. Log in again in another tab and resubmit.');
+        return panel.show('error', 'You were logged out. Log in again in another tab and resubmit.', { offerReport: true });
       case 'challenge':
-        return panel.show('error', 'Blocked by the Cloudflare check. Reload the page and resubmit.');
+        return panel.show('error', 'Blocked by the Cloudflare check. Reload the page and resubmit.', { offerReport: true });
       case 'cancelled':
-        return panel.show('info', 'Stopped after ' + tries + '.');
+        return panel.show('info', 'Stopped after ' + tries + '.', { offerReport: true });
       case 'gave-up':
-        return panel.show('error', 'Gave up after ' + tries + '. FanFiction.net may be having issues, try again later.', { notes });
+        return panel.show('error', 'Gave up after ' + tries + '. FanFiction.net may be having issues, try again later.', { notes, offerReport: true });
       default:
-        return panel.show('error', 'Unexpected response (HTTP ' + outcome.status + '): ' + outcome.snippet, { offerBypass: true });
+        return panel.show('error', 'Unexpected response (HTTP ' + outcome.status + '): ' + outcome.snippet, { offerBypass: true, offerReport: true });
     }
   }
 
@@ -227,6 +270,17 @@
           bypassOnce = true;
           form.requestSubmit ? form.requestSubmit() : form.submit();
         }));
+      }
+      if (opts.offerReport) {
+        const copy = button('Copy debug report', async () => {
+          try {
+            await navigator.clipboard.writeText(await F.diagnostics.currentReport());
+            copy.textContent = 'Copied';
+          } catch (err) {
+            copy.textContent = 'Could not copy, open the extension popup';
+          }
+        });
+        actions.append(copy);
       }
     }
 
